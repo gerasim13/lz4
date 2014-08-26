@@ -417,7 +417,7 @@ static unsigned LZ4_count(const BYTE* pIn, const BYTE* pRef, const BYTE* pInLimi
     {
         size_t diff = AARCH(pRef) ^ AARCH(pIn);
         if (!diff) { pIn+=STEPSIZE; pRef+=STEPSIZE; continue; }
-        pIn += LZ4_NbCommonBytes(diff);
+        pIn += LZ4_NbCommonBytes((U32)diff);
         return (unsigned)(pIn - pStart);
     }
     if (LZ4_64BITS) if ((pIn<(pInLimit-3)) && (A32(pRef) == A32(pIn))) { pIn+=4; pRef+=4; }
