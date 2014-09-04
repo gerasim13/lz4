@@ -31,18 +31,18 @@
 # ################################################################
 
 # Version numbers
-VERSION=120
+VERSION=122
 export RELEASE=r$(VERSION)
-LIBVER_MAJOR=`sed -n '/LZ4_VERSION_MAJOR/s/.*\s\+\([0-9]\+\).*/\1/p' < lz4.h`
-LIBVER_MINOR=`sed -n '/LZ4_VERSION_MINOR/s/.*\s\+\([0-9]\+\).*/\1/p' < lz4.h`
-LIBVER_PATCH=`sed -n '/LZ4_VERSION_RELEASE/s/.*\s\+\([0-9]\+\).*/\1/p' < lz4.h`
+LIBVER_MAJOR=`sed -n '/define LZ4_VERSION_MAJOR/s/.*[[:blank:]]\([0-9][0-9]*\).*/\1/p' < lz4.h`
+LIBVER_MINOR=`sed -n '/define LZ4_VERSION_MINOR/s/.*[[:blank:]]\([0-9][0-9]*\).*/\1/p' < lz4.h`
+LIBVER_PATCH=`sed -n '/define LZ4_VERSION_RELEASE/s/.*[[:blank:]]\([0-9][0-9]*\).*/\1/p' < lz4.h`
 LIBVER=$(LIBVER_MAJOR).$(LIBVER_MINOR).$(LIBVER_PATCH)
 
-DESTDIR=
-PREFIX = /usr
-CC    := $(CC)
-CFLAGS?= -O3
-CFLAGS+= -I. -std=c99 -Wall -Wextra -Wundef -Wshadow -Wstrict-prototypes -DLZ4_VERSION=\"$(RELEASE)\"
+DESTDIR?=
+PREFIX ?= /usr
+CC     := $(CC)
+CFLAGS ?= -O3
+CFLAGS += -I. -std=c99 -Wall -Wextra -Wundef -Wshadow -Wstrict-prototypes -DLZ4_VERSION=\"$(RELEASE)\"
 
 LIBDIR?= $(PREFIX)/lib
 INCLUDEDIR=$(PREFIX)/include
@@ -72,9 +72,11 @@ else
 endif
 
 TEXT = lz4.c lz4.h lz4hc.c lz4hc.h \
-	lz4_format_description.txt Makefile NEWS LICENSE README.md \
+	liblz4.pc.in Makefile \
+	lz4_format_description.txt NEWS LICENSE README.md \
 	cmake_unofficial/CMakeLists.txt \
-	$(PRGDIR)/fullbench.c $(PRGDIR)/fuzzer.c $(PRGDIR)/lz4cli.c \
+	$(PRGDIR)/fullbench.c $(PRGDIR)/lz4cli.c \
+	$(PRGDIR)/datagen.c $(PRGDIR)/fuzzer.c \
 	$(PRGDIR)/lz4io.c $(PRGDIR)/lz4io.h \
 	$(PRGDIR)/bench.c $(PRGDIR)/bench.h \
 	$(PRGDIR)/xxhash.c $(PRGDIR)/xxhash.h \
@@ -105,16 +107,17 @@ liblz4: lz4.c lz4hc.c
 clean:
 	@rm -f core *.o *.a *.$(SHARED_EXT) *.$(SHARED_EXT).* $(DISTRIBNAME) *.sha1 liblz4.pc
 	@cd $(PRGDIR); $(MAKE) clean
+	@cd examples; $(MAKE) clean
 	@echo Cleaning completed
 
 
 #------------------------------------------------------------------------
-#make install option is designed for Linux & OSX targets only
-
-ifneq (,$(filter $(shell uname),Linux Darwin))
+#make install is validated only for Linux, OSX, kFreeBSD and Hurd targets
+ifneq (,$(filter $(shell uname),Linux Darwin GNU/kFreeBSD GNU))
 
 liblz4.pc: liblz4.pc.in Makefile
-	sed -e 's|@PREFIX@|$(PREFIX)|' \
+	@echo creating pkgconfig
+	@sed -e 's|@PREFIX@|$(PREFIX)|' \
             -e 's|@LIBDIR@|$(LIBDIR)|' \
             -e 's|@INCLUDEDIR@|$(INCLUDEDIR)|' \
             -e 's|@VERSION@|$(VERSION)|' \
@@ -160,9 +163,7 @@ dist: clean
 	@echo Distribution $(DISTRIBNAME) built
 
 test:
-	@cd $(PRGDIR); $(MAKE) -e $@
-
-test-travis: lz4programs
+	@cd examples; $(MAKE) -e $@
 	@cd $(PRGDIR); $(MAKE) -e $@
 
 endif

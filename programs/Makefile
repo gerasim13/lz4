@@ -30,20 +30,21 @@
 # fullbench32: Same as fullbench, but forced to compile in 32-bits mode
 # ##########################################################################
 
-RELEASE=r120
-DESTDIR=
-PREFIX=/usr
-CC:=$(CC)
-CFLAGS?= -O3
-CFLAGS+= -std=c99 -Wall -Wextra -Wundef -Wshadow -Wstrict-prototypes -DLZ4_VERSION=\"$(RELEASE)\"
-FLAGS= -I.. $(CPPFLAGS) $(CFLAGS) $(LDFLAGS)
+RELEASE=r122
+
+DESTDIR?=
+PREFIX ?= /usr
+CC     := $(CC)
+CFLAGS ?= -O3
+CFLAGS += -std=c99 -Wall -Wextra -Wundef -Wshadow -Wstrict-prototypes -DLZ4_VERSION=\"$(RELEASE)\"
+FLAGS   = -I.. $(CPPFLAGS) $(CFLAGS) $(LDFLAGS)
 
 BINDIR=$(PREFIX)/bin
 MANDIR=$(PREFIX)/share/man/man1
 LZ4DIR=..
 
 TEST_FILES = COPYING
-TEST_TARGETS=test
+TEST_TARGETS=test-native
 BENCH_NB=-i5
 
 # Minimize test target for Travis CI's Build Matrix
@@ -51,7 +52,6 @@ ifeq ($(LZ4_TRAVIS_CI_ENV),-m32)
 TEST_TARGETS=test-force32
 BENCH_NB=-i1
 else ifeq ($(LZ4_TRAVIS_CI_ENV),-m64)
-TEST_TARGETS=test
 BENCH_NB=-i1
 endif
 
@@ -103,7 +103,9 @@ clean:
 	@echo Cleaning completed
 
 
-ifneq (,$(filter $(shell uname),Linux Darwin))
+#------------------------------------------------------------------------
+#make install is validated only for Linux, OSX, kFreeBSD and Hurd targets
+ifneq (,$(filter $(shell uname),Linux Darwin GNU/kFreeBSD GNU))
 
 install: lz4 lz4c
 	@echo Installing binaries
@@ -126,24 +128,27 @@ uninstall:
 	[ -f $(DESTDIR)$(MANDIR)/lz4cat.1 ] && rm -f $(DESTDIR)$(MANDIR)/lz4cat.1
 	@echo lz4 successfully uninstalled
 
-test: test-lz4 test-lz4c test-fullbench test-fuzzer test-mem
+test-native: test-lz4 test-lz4c test-fullbench test-fuzzer test-mem
 
 test-force32: test-lz4c32 test-fullbench32 test-fuzzer32 test-mem32
 
-test-all: test test-force32
+test-all: test-native test-force32
 
-test-travis: $(TEST_TARGETS)
+test: $(TEST_TARGETS)
 
 test-lz4: lz4 datagen
-	./datagen | ./lz4 | ./lz4 -vdq > $(VOID)
+	./datagen -g16KB  | ./lz4 -9     | ./lz4 -vdq > $(VOID)
+	./datagen         | ./lz4        | ./lz4 -vdq > $(VOID)
 	./datagen -g256MB | ./lz4 -vqB4D | ./lz4 -vdq > $(VOID)
 	./datagen -g6GB   | ./lz4 -vqB5D | ./lz4 -vdq > $(VOID)
 
 test-lz4c: lz4c datagen
 
 test-lz4c32: lz4 lz4c32 lz4 datagen
-	./datagen | ./lz4c32 | ./lz4c32 -vdq > $(VOID)
-	./datagen | ./lz4c32 | ./lz4    -vdq > $(VOID)
+	./datagen -g16KB  | ./lz4c32 -9     | ./lz4c32 -vdq > $(VOID)
+	./datagen -g16KB  | ./lz4c32 -9     | ./lz4    -vdq > $(VOID)
+	./datagen         | ./lz4c32        | ./lz4c32 -vdq > $(VOID)
+	./datagen         | ./lz4c32        | ./lz4    -vdq > $(VOID)
 	./datagen -g256MB | ./lz4c32 -vqB4D | ./lz4c32 -vdq > $(VOID)
 	./datagen -g256MB | ./lz4c32 -vqB4D | ./lz4    -vdq > $(VOID)
 	./datagen -g6GB   | ./lz4c32 -vqB5D | ./lz4c32 -vdq > $(VOID)
@@ -161,10 +166,12 @@ test-fuzzer32: fuzzer32
 	./fuzzer32 --no-prompt
 
 test-mem: lz4 datagen
-	./datagen -g256MB > tmp
-	valgrind ./lz4 -B4D -f tmp /dev/null
+	./datagen -g16KB > tmp
+	valgrind ./lz4 -9 -BD -f tmp /dev/null
 	./datagen -g16MB > tmp
 	valgrind ./lz4 -9 -B5D -f tmp /dev/null
+	./datagen -g256MB > tmp
+	valgrind ./lz4 -B4D -f tmp /dev/null
 	rm tmp
 
 test-mem32: lz4c32 datagen
